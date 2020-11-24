@@ -5,31 +5,34 @@ import androidx.databinding.ViewDataBinding
 import androidx.recyclerview.widget.AdapterListUpdateCallback
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> private constructor(
+open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> protected constructor(
+    initList: List<T>? = null,
     private val diffItemCallback: DiffUtil.ItemCallback<T>? = null
-) :
-    RecyclerView.Adapter<VH>(), BindingViewHolderAdapter<T, VH>, MutableListAdapter<T> {
+) : RecyclerView.Adapter<VH>(), BindingViewHolderAdapter<T, VH>, MutableListAdapter<T> {
 
-    private var items: MutableList<T> = Collections.emptyList()
+    protected var items = initList?.toMutableList() ?: mutableListOf()
 
     private val updateCallback by lazy { AdapterListUpdateCallback(this) }
 
     final override lateinit var viewHolderFactory: BindingViewHolderFactory<VH>
         private set
-    final override var itemTypeResolver: BindingViewHolderAdapter.ItemTypeResolver<T>? = null
+    final override var itemTypeLookup: BindingViewHolderAdapter.ItemTypeLookup<T>? = null
         private set
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
-        viewHolderFactory.get(parent, viewType)
+        viewHolderFactory.getViewHolderByType(parent, viewType)
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         holder.bind(getItem(position), position)
     }
 
     override fun getItemViewType(position: Int) =
-        itemTypeResolver?.getItemType(getItem(position), position)
+        itemTypeLookup?.getItemType(getItem(position), position)
             ?: BindingViewHolderAdapter.UNKNOWN_ITEM_TYPE
 
     override fun getItemCount() = items.size
@@ -65,20 +68,34 @@ open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> private const
     override fun remove(position: Int) =
         items.removeAt(position).also { notifyItemRemoved(position) }
 
+    override fun removeRange(position: Int, count: Int): Boolean {
+        val trueCount = (position + count).coerceAtLeast(items.size) - position
+        if (trueCount > 0) {
+            for (pos in position until (position + trueCount)) items.removeAt(pos)
+            notifyItemRangeRemoved(position, trueCount)
+            return true
+        }
+        return false
+    }
+
     override fun submitList(list: List<T>?) {
         if (list == null || list.isEmpty()) {
             if (items.isNotEmpty()) {
-                items = Collections.emptyList()
+                items = mutableListOf()
                 notifyDataSetChanged()
             }
         } else if (items.isEmpty()) {
             items = list.toMutableList()
             notifyDataSetChanged()
         } else {
-            // TODO do it in coroutines
-            val diffResult = DiffUtil.calculateDiff(DiffUtilCallback(list))
-            items = list.toMutableList()
-            diffResult.dispatchUpdatesTo(updateCallback)
+            GlobalScope.launch(Dispatchers.Main) {
+                val diffResult =
+                    withContext(Dispatchers.Default) {
+                        DiffUtil.calculateDiff(DiffUtilCallback(list))
+                    }
+                items = list.toMutableList()
+                diffResult.dispatchUpdatesTo(updateCallback)
+            }
         }
     }
 
@@ -91,19 +108,22 @@ open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> private const
 
     constructor(
         viewHolderFactory: BindingViewHolderFactory<VH>,
-        itemTypeResolver: BindingViewHolderAdapter.ItemTypeResolver<T>? = null,
+        itemTypeLookup: BindingViewHolderAdapter.ItemTypeLookup<T>? = null,
+        initList: List<T>? = null,
         diffItemCallback: DiffUtil.ItemCallback<T>? = null
-    ) : this(diffItemCallback) {
+    ) : this(initList, diffItemCallback) {
         this.viewHolderFactory = viewHolderFactory
-        this.itemTypeResolver = itemTypeResolver
+        this.itemTypeLookup = itemTypeLookup
     }
 
     constructor(
         holder: VH,
+        initList: List<T>? = null,
         diffItemCallback: DiffUtil.ItemCallback<T>? = null
     ) : this(
         viewHolderFactory = BindingViewHolderMapFactory<VH>()
             .apply { add(holder, BindingViewHolderAdapter.UNKNOWN_ITEM_TYPE) },
+        initList = initList,
         diffItemCallback = diffItemCallback
     )
 
@@ -111,6 +131,7 @@ open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> private const
     constructor(
         binding: ViewDataBinding,
         doBind: ((binding: ViewDataBinding, item: T, position: Int) -> Unit)? = null,
+        initList: List<T>? = null,
         diffItemCallback: DiffUtil.ItemCallback<T>? = null
     ) : this(
         viewHolderFactory = BindingViewHolderMapFactory<VH>()
@@ -120,6 +141,7 @@ open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> private const
                     BindingViewHolderAdapter.UNKNOWN_ITEM_TYPE
                 )
             },
+        initList = initList,
         diffItemCallback = diffItemCallback
     )
 
@@ -127,25 +149,29 @@ open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> private const
     constructor(
         binding: ViewDataBinding,
         variableId: Int,
-        diffItemCallback: DiffUtil.ItemCallback<T>? = null,
+        initList: List<T>? = null,
+        diffItemCallback: DiffUtil.ItemCallback<T>? = null
     ) : this(
         holder = SimpleBindingViewHolder<T>(binding, variableId) as VH,
+        initList = initList,
         diffItemCallback = diffItemCallback
     )
 
     constructor(
         layoutId: Int,
         variableId: Int,
-        diffItemCallback: DiffUtil.ItemCallback<T>? = null,
+        initList: List<T>? = null,
+        diffItemCallback: DiffUtil.ItemCallback<T>? = null
     ) : this(
         viewHolderFactory = SimpleBindingViewHolderFactory<T, VH>(layoutId, variableId),
+        initList = initList,
         diffItemCallback = diffItemCallback
     )
 
     inner class Builder : BindingAdapterBuilder<T, VH>() {
 
         override fun build() =
-            MutableBindingListAdapter(viewHolderFactory ?: defFactory, itemTypeResolver)
+            MutableBindingListAdapter(viewHolderFactory ?: defFactory, itemTypeLookup)
 
     }
 
@@ -156,12 +182,17 @@ open class MutableBindingListAdapter<T, VH : BindingViewHolder<T>> private const
         override fun getNewListSize() = list.size
 
         override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-            diffItemCallback?.areItemsTheSame(items[oldItemPosition], list[newItemPosition])
-                    ?: items[oldItemPosition] == list[newItemPosition]
+            if (items[oldItemPosition] == null) list[newItemPosition] == null else
+                diffItemCallback?.areItemsTheSame(items[oldItemPosition]!!, list[newItemPosition]!!)
+                        ?: items[oldItemPosition] == list[newItemPosition]
 
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-            diffItemCallback?.areContentsTheSame(items[oldItemPosition], list[newItemPosition])
-                ?: true
+            if (items[oldItemPosition] == null) list[newItemPosition] == null else
+                diffItemCallback?.areContentsTheSame(
+                    items[oldItemPosition]!!,
+                    list[newItemPosition]!!
+                )
+                    ?: true
 
     }
 

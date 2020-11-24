@@ -7,6 +7,7 @@ interface MutableListAdapter<T> {
     fun addAll(position: Int, elements: Collection<T>): Boolean
     fun remove(item: T): Boolean
     fun remove(position: Int): T
+    fun removeRange(position: Int, count: Int): Boolean
     fun indexOf(item: T): Int
     fun move(oldPosition: Int, newPosition: Int)
     fun submitList(list: List<T>?)

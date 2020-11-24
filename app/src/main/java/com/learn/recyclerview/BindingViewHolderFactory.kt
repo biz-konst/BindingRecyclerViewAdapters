@@ -8,7 +8,7 @@ import androidx.databinding.ViewDataBinding
 
 interface BindingViewHolderFactory<out VH : BindingViewHolder<*>> {
 
-    fun get(parent: ViewGroup, viewType: Int): VH
+    fun getViewHolderByType(parent: ViewGroup, viewType: Int): VH
 
 }
 
@@ -20,7 +20,7 @@ class SimpleBindingViewHolderFactory<T, out VH: BindingViewHolder<*>>(
 ) :  BindingViewHolderFactory<VH> {
 
     @Suppress("UNCHECKED_CAST")
-    override fun get(parent: ViewGroup, viewType: Int): VH {
+    override fun getViewHolderByType(parent: ViewGroup, viewType: Int): VH {
         val inflater = LayoutInflater.from(parent.context)
         val binding = DataBindingUtil.inflate<ViewDataBinding>(inflater, layoutId, parent, false)
 
@@ -34,7 +34,7 @@ class BindingViewHolderMapFactory<VH : BindingViewHolder<*>> :
 
     private val holderList = SparseArrayCompat<VH>()
 
-    override fun get(parent: ViewGroup, viewType: Int) =
+    override fun getViewHolderByType(parent: ViewGroup, viewType: Int) =
         holderList[viewType] ?: throw ViewHolderFactoryException("Unknown view holder type")
 
     fun add(holder: VH, viewType: Int) {

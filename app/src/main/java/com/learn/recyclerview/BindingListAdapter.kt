@@ -1,6 +1,5 @@
 package com.learn.recyclerview
 
-import android.annotation.SuppressLint
 import android.view.ViewGroup
 import androidx.databinding.ViewDataBinding
 import androidx.recyclerview.widget.DiffUtil
@@ -12,7 +11,7 @@ class BindingListAdapter<T, VH : BindingViewHolder<T>> private constructor(
 
     override lateinit var viewHolderFactory: BindingViewHolderFactory<VH>
         private set
-    override var itemTypeResolver: BindingViewHolderAdapter.ItemTypeResolver<T>? = null
+    override var itemTypeLookup: BindingViewHolderAdapter.ItemTypeLookup<T>? = null
         private set
 
     var onListChangedListener: OnListChangedListener<T>? = null
@@ -22,14 +21,14 @@ class BindingListAdapter<T, VH : BindingViewHolder<T>> private constructor(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-        viewHolderFactory.get(parent, viewType)
+        viewHolderFactory.getViewHolderByType(parent, viewType)
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         holder.bind(getItem(position), position)
     }
 
     override fun getItemViewType(position: Int) =
-        itemTypeResolver?.getItemType(getItem(position), position)
+        itemTypeLookup?.getItemType(getItem(position), position)
             ?: BindingViewHolderAdapter.UNKNOWN_ITEM_TYPE
 
     override fun onCurrentListChanged(previousList: MutableList<T>, currentList: MutableList<T>) {
@@ -46,11 +45,11 @@ class BindingListAdapter<T, VH : BindingViewHolder<T>> private constructor(
 
     constructor(
         viewHolderFactory: BindingViewHolderFactory<VH>,
-        itemTypeResolver: BindingViewHolderAdapter.ItemTypeResolver<T>? = null,
+        itemTypeLookup: BindingViewHolderAdapter.ItemTypeLookup<T>? = null,
         diffCallback: DiffUtil.ItemCallback<T> = DiffItemCallback()
     ) : this(diffCallback) {
         this.viewHolderFactory = viewHolderFactory
-        this.itemTypeResolver = itemTypeResolver
+        this.itemTypeLookup = itemTypeLookup
     }
 
     constructor(
@@ -115,7 +114,7 @@ class BindingListAdapter<T, VH : BindingViewHolder<T>> private constructor(
             }
 
         override fun build() =
-            BindingListAdapter(viewHolderFactory ?: defFactory, itemTypeResolver, diffCallback)
+            BindingListAdapter(viewHolderFactory ?: defFactory, itemTypeLookup, diffCallback)
                 .also { it.onListChangedListener = onListChangedListener }
 
     }

@@ -5,12 +5,12 @@ import androidx.databinding.ViewDataBinding
 @Suppress("unused")
 abstract class BindingAdapterBuilder<T, VH : BindingViewHolder<T>> {
 
-    var itemTypeResolver: BindingViewHolderAdapter.ItemTypeResolver<T>? = null
+    var itemTypeLookup: BindingViewHolderAdapter.ItemTypeLookup<T>? = null
     var viewHolderFactory: BindingViewHolderFactory<VH>? = null
     var defFactory = BindingViewHolderMapFactory<VH>()
 
-    fun setItemTypeResolver(resolver: BindingViewHolderAdapter.ItemTypeResolver<T>) =
-        apply { itemTypeResolver = resolver }
+    fun setItemTypeResolver(lookup: BindingViewHolderAdapter.ItemTypeLookup<T>) =
+        apply { itemTypeLookup = lookup }
 
     fun setViewHolderFactory(factory: BindingViewHolderFactory<VH>) =
         apply { viewHolderFactory = factory }

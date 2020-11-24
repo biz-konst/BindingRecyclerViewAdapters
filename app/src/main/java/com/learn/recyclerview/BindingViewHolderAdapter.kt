@@ -1,13 +1,19 @@
 package com.learn.recyclerview
 
-interface BindingViewHolderAdapter<T, VH: BindingViewHolder<*>> {
+import android.view.ViewGroup
 
-    interface ItemTypeResolver<U> {
+interface BindingViewHolderAdapter<T, VH: BindingViewHolder<T>> {
+
+    interface ItemTypeLookup<U> {
         fun getItemType(item: U, position: Int): Int
     }
 
     val viewHolderFactory: BindingViewHolderFactory<VH>
-    val itemTypeResolver: ItemTypeResolver<T>?
+    val itemTypeLookup: ItemTypeLookup<T>?
+
+    fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH
+    fun onBindViewHolder(holder: VH, position: Int)
+    fun getItemViewType(position: Int): Int
 
     companion object {
         const val UNKNOWN_ITEM_TYPE = Int.MIN_VALUE
